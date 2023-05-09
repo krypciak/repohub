@@ -1,0 +1,9 @@
+[submodule "linux-configuration/user/.config/dwl/dwl-dotfiles"]
+	path = linux-configuration/user/.config/dwl/dwl-dotfiles
+	url = https://github.com/krypciak/dwl-dotfiles
+[submodule "linux-configuration/user/.config/dwl/someblocks"]
+	path = linux-configuration/user/.config/dwl/someblocks
+	url = https://github.com/krypciak/someblocks
+[submodule "linux-configuration/user/.config/dwl/somebar"]
+	path = linux-configuration/user/.config/dwl/somebar
+	url = https://github.com/krypciak/somebar

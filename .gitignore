@@ -1,0 +1,17 @@
+tmp
+
+linux-configuration/user/.config/dwl/run/debug.txt
+linux-configuration/user/.config/dwl/run/log.txt
+linux-configuration/user/private
+linux-configuration/user/private.old
+linux-configuration/user/.local/share/nvim/telescope_history
+
+*.log
+*/**/LOG
+*/**/LOG.old
+
+*.ldb
+
+*.o
+*-protocol.c
+*-protocol.h
