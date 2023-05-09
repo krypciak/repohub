@@ -7,3 +7,9 @@
 [submodule "linux-configuration/user/.config/dwl/somebar"]
 	path = linux-configuration/user/.config/dwl/somebar
 	url = https://github.com/krypciak/somebar
+[submodule "distrobridge"]
+	path = distrobridge
+	url = https://github.com/krypciak/distrobridge
+[submodule "linux-configuration"]
+	path = linux-configuration
+	url = https://github.com/krypciak/linux-configuration
