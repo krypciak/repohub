@@ -3,7 +3,7 @@ set -a
 set -e
 
 # shellcheck disable=SC2154
-[ "$UTIL_SOURCED" = '1' ] && [ "$_util_source_force" != '1' ] && exit
+[ "$UTIL_SOURCED" = '1' ] && [ "$_util_source_force" != '1' ] && exit 0
 
 RED='\x1b[31m'
 ORANGE='\x1b[38;5;208m'
@@ -16,7 +16,7 @@ UNDERLINE='\x1b[4m'
 NC='\x1b[0m'
 
 _process_msg() {
-    echo "$*" | sed -e "s|<path>|$ORANGE|g" | sed -e "s|</path>|$NC$BOLD|g";
+    echo "$*" | sed -e "s|<path>|$ORANGE|g" | sed -e "s|</path>|$NC$BOLD|g" | sed -e "s|<user>|$ORANGE|g" | sed -e "s|</user>|$NC$BOLD|g";
 }
 
 info() { printf "${BLUE}::${NC} ${BOLD}$(_process_msg "$(_process_msg "$*")")${NC}\n"; }
