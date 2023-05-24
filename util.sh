@@ -2,7 +2,8 @@
 set -a
 set -e
 
-[ "$UTIL_SOURCED" = '1' ] && exit
+# shellcheck disable=SC2154
+[ "$UTIL_SOURCED" = '1' ] && [ "$_util_source_force" != '1' ] && exit
 
 RED='\x1b[31m'
 ORANGE='\x1b[38;5;208m'
@@ -15,7 +16,7 @@ UNDERLINE='\x1b[4m'
 NC='\x1b[0m'
 
 _process_msg() {
-    printf "$*" | sed -e "s|<path>|$ORANGE|g" | sed -e "s|</path>|$NC$BOLD|g";
+    echo "$*" | sed -e "s|<path>|$ORANGE|g" | sed -e "s|</path>|$NC$BOLD|g";
 }
 
 info() { printf "${BLUE}::${NC} ${BOLD}$(_process_msg "$(_process_msg "$*")")${NC}\n"; }
@@ -106,56 +107,135 @@ check_isnt_root() {
 }
 
 handle_args() {
-    set +a
-    inshort="h=_help,$1"
-    inlong="help=_help,$2"
-    short="$(echo "$inshort" | tr ',' '\n' | awk -F'=' '{print $1}' | tr '\n' ',')"; 
-    long="$(echo "$inlong" | tr ',' '\n' | awk -F'=' '{print $1}' | tr '\n' ',')"; 
+    SYNTAX="-h|--help=_help,$1"
+    shift
     
+    export short_names_toparse=''
+    export long_names_toparse=''
+    export tocheck=''
+    export required_set=''
+    IFS=','
+    index=0
+    for arg in $SYNTAX; do
+        shifts=1; required=0; arg_required=0; short_name=''; long_name='';
+        names="$(echo "$arg" | awk -F'=' '{print $1}')"
+        if [ "$(echo "$names" | tail -c -2)" = 'R' ]; then required=1;     names="$(echo "$names" | head -c -2)"; fi
+        if [ "$(echo "$names" | tail -c -2)" = ':' ]; then arg_required=1; names="$(echo "$names" | head -c -2)"; fi
+        
+        if [ "$(echo "$names" | head -c 2)" = '--' ]; then 
+            if [ "$(echo "$names" | grep "|")" = '' ]; then
+                long_name="$names"
+            else
+                long_name="$(echo "$names" | awk -F'|' '{print $1}')"
+                short_name="$(echo "$names" | awk -F'|' '{print $2}')"
+            fi
+        fi
+        if [ "$(echo "$names" | head -c 1)" = '-' ]; then 
+            if [ "$(echo "$names" | grep "|")" = '' ]; then
+                short_name="$names"
+            else
+                short_name="$(echo "$names" | awk -F'|' '{print $1}')"
+                long_name="$(echo "$names" | awk -F'|' '{print $2}')"
+            fi
+        fi
     
-    set +e
-    if ! opts=$(getopt --alternative --name install --options "h $short" --longoptions "$long" -- "$@"); then
+        if [ "$short_name" != '' ]; then
+            short_names_toparse="$short_names_toparse,$(printf -- "$short_name" | tail -c +2; [ "$arg_required" = '1' ] && printf ':')"
+            tocheck="$tocheck,$(printf -- "$short_name"; \
+                [ "$arg_required" = '1' ] && printf ':'; [ "$required" = '1' ]; printf 'R'; \
+                printf "@$index"; printf '='; echo "$arg" | awk '{print substr($0, index($0, "=")+1)}';
+            )"
+        fi
+        if [ "$long_name" != '' ]; then
+            long_names_toparse="$long_names_toparse,$(printf -- "$long_name" | tail -c +3; [ "$arg_required" = '1' ] && printf ':')"
+            tocheck="$tocheck,$(printf -- "$long_name"; \
+            [ "$arg_required" = '1' ] && printf ':'; [ "$required" = '1' ]; printf 'R'; \
+                printf "@$index"; printf '='; echo "$arg" | awk '{print substr($0, index($0, "=")+1)}'; 
+            )"
+        fi
+        [ "$required" = '1' ] && required_set="$index|$required_set"
+        index=$((index+1))
+    done
+    short_names_toparse="$(echo "$short_names_toparse" | tail -c +2)"
+    long_names_toparse="$(echo "$long_names_toparse" | tail -c +2)"
+    tocheck="$(echo "$tocheck" | tail -c +2)"
+    
+    if ! opts=$(getopt --alternative --name install --options "$short_names_toparse" --longoptions "$long_names_toparse" -- "$@"); then
         _help
         exit 1
     fi
-        
-    IFS=","
+
+    
     eval set -- "$opts"
     while true; do
-        for arg in $inshort; do
-            name="-$(echo $arg | awk -F'=' '{print $1}')"
-            [ "$(echo "$name" | tail -c -2)" = ':' ] && name="$(echo "$name" | head -c -2)"  
+        [ "$1" = '--' ] && break
+        for arg in $tocheck; do
+            required=0; arg_required=0;
+            name="$(echo "$arg" | awk -F'=' '{print $1}')"
+            index="${name##*@}"
+            name="$(echo "$name" | head -c -"$(echo ${#index}+2 | bc)")"
+            if [ "$(echo "$name" | tail -c -2)" = 'R' ]; then required=1;     name="$(echo "$name" | head -c -2)"; fi
+            if [ "$(echo "$name" | tail -c -2)" = ':' ]; then arg_required=1; name="$(echo "$name" | head -c -2)"; fi
             
-            if [ "$1" = "$name" ]; then
-               eval "$(echo "$arg" | awk '{print substr($0, index($0, "=")+1)}')"
-               shift
-               continue 2
-            fi
-        done
-        for arg in $inlong; do
-            name="--$(echo "$arg" | awk -F'=' '{print $1}')"
-            [ "$(echo "$name" | tail -c -2)" = ':' ] && name="$(echo "$name" | head -c -2)"  
-
             if [ "$1" = "$name" ]; then
                 eval "$(echo "$arg" | awk '{print substr($0, index($0, "=")+1)}')"
                 shift
-                [ "$(echo "$name" | grep ':')" != '' ] && shift
+                [ "$arg_required" = '1' ] && shift
+                if [ "$required" = '1' ]; then
+                    required_set="$(printf "$required_set" | tr '|' '\n' | grep -v "$index" | head -c -1 | tr '\n' '|')"
+                fi
                 continue 2
             fi
         done
-        if [ "$1" = '--' ]; then
-            shift
-            break
-        fi
-
-        err "Unexpected option: $1"
-        exit 1
-
+        shift
     done
-    unset IFS
-    set -a
-}
+    if [ "$required_set" != '' ]; then
+        IFS="|"
+        for missing_index in $required_set; do
+            IFS=","
+            for arg in $tocheck; do 
+                required=0;
+                name="$(echo "$arg" | awk -F'=' '{print $1}')"
+                index="${name##*@}"
+                name="$(echo "$name" | head -c -"$(echo ${#index}+2 | bc)")"
+                if [ "$(echo "$name" | head -c 2)" = '--' ]; then
+                    if [ "$(echo "$name" | tail -c -2)" = 'R' ]; then required=1; name="$(echo "$name" | head -c -2)"; fi
+                    if [ "$(echo "$name" | tail -c -2)" = ':' ]; then name="$(echo "$name" | head -c -2)"; fi
 
+                    if [ "$missing_index" = "$index" ]; then
+                        err "Missing argument: $name"
+                        required_set="$(printf "$required_set" | tr '|' '\n' | grep -v "$index" | head -c -1 | tr '\n' '|')"
+                    fi
+                fi
+            done
+            IFS="|"
+        done
+        IFS="|"
+        for missing_index in $required_set; do
+            IFS=","
+            for arg in $tocheck; do 
+                required=0;
+                name="$(echo "$arg" | awk -F'=' '{print $1}')"
+                index="${name##*@}"
+                name="$(echo "$name" | head -c -"$(echo ${#index}+2 | bc)")"
+                if [ "$(echo "$name" | head -c 1)" = '-' ]; then
+                    if [ "$(echo "$name" | tail -c -2)" = 'R' ]; then required=1; name="$(echo "$name" | head -c -2)"; fi
+                    if [ "$(echo "$name" | tail -c -2)" = ':' ]; then name="$(echo "$name" | head -c -2)"; fi
+    
+                    if [ "$missing_index" = "$index" ]; then
+                        err "Missing argument: $name"
+                    fi
+                fi
+            done
+            IFS="|"
+        done
+        _help
+        exit 1
+    fi
+    
+    
+    unset IFS
+}
 
 if [ -z "$USER1" ]; then
     user="$(whoami)"
@@ -176,4 +256,8 @@ REAL_USER_HOME="/home/$USER1"
 mkdir -p "$USER_HOME"
 mkdir -p "$DOTDIR"/tmp
 
+GIT_DISCOVERY_ACROSS_FILESYSTEM=1
+
 UTIL_SOURCED=1
+
+set +e

@@ -13,3 +13,6 @@
 [submodule "linux-configuration"]
 	path = linux-configuration
 	url = https://github.com/krypciak/linux-configuration
+[submodule "dotfiles"]
+	path = dotfiles
+	url = https://github.com/krypciak/dotfiles
