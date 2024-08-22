@@ -235,6 +235,7 @@ _util() {
         unset IFS
     }
     
+    export USER1='krypek'
     if [ -z "$USER1" ]; then
         user="$(whoami)"
         if [ "$user" = 'root' ]; then
@@ -245,7 +246,8 @@ _util() {
         unset user
     fi
     
-    USER_GROUP="$(id -gn $USER1)"
+    # USER_GROUP="$(id -gn $USER1)"
+    USER_GROUP="$USER1"
     USER_HOME="/home/$USER1/home"
     REAL_USER_HOME="/home/$USER1"
     
